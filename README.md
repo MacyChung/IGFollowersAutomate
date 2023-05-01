@@ -1,2 +1,2 @@
-# auto-ig
+# IGUnfollowersAutomate
 Automates instagram login, tracks unfollowers
