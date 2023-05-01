@@ -1,0 +1,169 @@
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+import time
+
+
+username_css = '@name=\'username\''
+password_css = 'name="password"'
+username = 'jacksonwwwsss'
+password = 'Wjdekduddutlsig1894^^'
+
+count = 0
+
+#logs us into the instagram
+#ig login page -> right click name -> inspect
+def login(driver):
+    #Replace with web driver wait
+    WebDriverWait(driver, 20).until(
+        EC.presence_of_element_located((By.NAME, "username")))
+    #we are using the attribute selector that the ig have pre-installed
+    # (in this case, "username" and "password")
+    driver.find_element_by_name("username").send_keys(username)
+    driver.find_element_by_name("password").send_keys(password)
+    #u'\ue007' is the special key code that represents enter
+    driver.find_element_by_name("password").send_keys(u'\ue007')    
+
+
+def click_button_with_css(driver, css_selector):
+    element = WebDriverWait(driver, 20).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, css_selector)))  #expected condition
+    element.click()
+
+
+#navigates to the followers
+def navigate_to_followers(driver):
+    #if the altname includes the username, we are creating a string for an actual css selector
+    dropdown_css = '[alt*="' + username + '"]'
+    profile_css = "[href*=\"" + username + "\"]"
+
+    #clicks the button with the following css
+    click_button_with_css(driver, dropdown_css)
+    click_button_with_css(driver, profile_css)
+
+
+
+def main():
+    #create the browser window
+    driver = webdriver.Chrome(ChromeDriverManager().install())
+
+    #head to the correct instagram address, go(surf) to any URL(instagram)
+    #URL of the instagram login page
+    driver.get('https://www.instagram.com/accounts/login/')
+
+    time.sleep(10)
+
+    login(driver)
+    navigate_to_followers(driver)
+    time.sleep(10000)
+    
+    #
+    # button that bring up the followers list
+    followers_css = "[href*=\"" + username + "/followers/\"]"
+    #close button on that dialoge
+    css_select_close = '[aria-label="Close"]'
+    # button that bring up the followers list
+    following_css = "[href*=\"" + username + "/following/\"]"
+
+
+    click_button_with_css(driver, followers_css)
+    followers_list = get_usernames_from_dialog(driver)
+
+    click_button_with_css(driver, css_select_close)
+
+    click_button_with_css(driver, following_css)
+    following_list = get_usernames_from_dialog(driver)
+
+    no_followbacks = no_followback(followers_list, following_list)
+    print (no_followbacks)
+
+
+
+#sort both lists, make no_followback_list(go though each person that the user follows)
+#see if there in the list that people follows the user back, if not, ValueError
+def no_followback(followers, following):
+    followers.sort()
+    following.sort()
+    no_followback_list = []
+    for i in range(len(following)):
+        try:
+            followers.index(following[i])
+        except ValueError:
+            no_followback_list += [following[i]]
+    return no_followback_list
+
+
+def check_difference_in_count(driver):
+    global count
+    new_count = len(driver.find_elements_by_xpath("//div[@role='dialog']//li"))
+
+    if count != new_count:
+        #reset the count
+        count = new_count
+        return True
+    else:
+        return False
+
+
+
+
+def get_usernames_from_dialog(driver):
+
+    #selects the dialog and all of the list elements that are part of that
+    list_xpath = "//div[@role='dialog']//li"
+
+    WebDriverWait(driver, 20).until(
+        EC.presence_of_element_located((By.XPATH, list_xpath)))
+    
+    scroll_down()
+
+    list_elems = driver.find_elements_by_xpaths(list_xpath)
+    time.sleep(10000)
+
+    #initialize the empty users list
+
+    users = []
+
+    for i in range(len(list_elems)):
+
+        try:
+            row_text = list_elems[i].text
+            #some elements of the list contains garbage values(not the followers), so we get the elements
+            #       containing the word 'follow'
+            if "Follow" in row_text:
+                #get the index of the newline character and get everything from the beginning to the newline
+                username = row_text[:row_text.index("\n")]
+                #might throw an error, wrap it in the try block and catch it if there is an error
+                users += [username]
+
+        except:
+            print("continue")
+
+    return users
+
+#scrolls the dialog down
+def scroll_down(driver):
+    #global variable, checking it as we execute the function
+    global count
+
+    iter = 0
+    
+    while 1:
+        scroll_top_num = str(iter * 1000)
+        iter += 1
+        #execute the javascript that is going to scroll down the box // selec
+        driver.execute_script("document.querySelector('div[role=dialog] ul').parentNode.scrollTop=" + scroll_top_num)
+        try:
+            #if no difference in the count(reached the end), reset the count variable and break the while loop
+            WebDriverWait(driver, 1).until(check_difference_in_count)
+        except:
+            count = 0
+            break
+
+    return
+
+
+main()
